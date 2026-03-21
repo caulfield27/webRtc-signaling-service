@@ -1,0 +1,29 @@
+{
+  "name": "video-chat-backend",
+  "version": "1.0.0",
+  "description": "service for webRtc signaling",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "ts-node index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caulfield27/webRtc-signaling-service.git"
+  },
+  "author": "Salikhov Alisher (holden)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/caulfield27/webRtc-signaling-service/issues"
+  },
+  "homepage": "https://github.com/caulfield27/webRtc-signaling-service#readme",
+  "dependencies": {
+    "ws": "^8.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@types/ws": "^8.18.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
