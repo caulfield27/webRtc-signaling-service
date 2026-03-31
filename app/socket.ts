@@ -11,11 +11,7 @@ interface IMessage {
   streamId?: string;
 }
 
-function sendMessage(
-  roomId: string | undefined,
-  socket: WebSocket,
-  msg: unknown,
-) {
+function sendMessage(roomId: string | undefined, socket: WebSocket, msg: unknown) {
   if (!roomId) return;
   const room = rooms.get(roomId);
   if (!room) return;
@@ -87,9 +83,7 @@ ws.on("connection", (socket: WebSocket) => {
         default:
           if (type === "joined-metadata") {
             const room = rooms.get(roomId!);
-            const currentClient = room?.clients.find(
-              (c) => c.socket === socket,
-            );
+            const currentClient = room?.clients.find((c) => c.socket === socket);
             if (currentClient) {
               currentClient.streamId = parsed.streamId!;
               currentClient.userName = parsed.userName!;
@@ -107,7 +101,11 @@ ws.on("connection", (socket: WebSocket) => {
     const room = rooms.get(roomId);
     if (!room) return;
     if (room.clients.length > 1) {
-      room.clients.pop();
+      const leaved = room.clients.pop();
+      sendMessage(roomId, socket, {
+        type: "disconnected",
+        streamId: leaved?.streamId,
+      });
       rooms.set(roomId, room);
     } else {
       rooms.delete(roomId);
