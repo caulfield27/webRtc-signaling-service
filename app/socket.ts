@@ -53,7 +53,7 @@ ws.on("connection", (socket: WebSocket) => {
           break;
         case "joinRoom":
           const currentRoom = rooms.get(roomId!);
-          if (!currentRoom || !roomId || currentRoom.clients.length > 1) return;
+          if (!currentRoom || !roomId || currentRoom.clients.length > 3) return;
           rooms.set(roomId, {
             roomName: currentRoom.roomName,
             clients: [
@@ -75,10 +75,6 @@ ws.on("connection", (socket: WebSocket) => {
               }),
             );
           }
-          sendMessage(roomId, socket, {
-            type: "joined",
-            userName: parsed.userName,
-          });
           break;
         default:
           if (type === "joined-metadata") {
