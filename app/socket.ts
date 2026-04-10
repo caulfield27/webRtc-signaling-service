@@ -9,18 +9,32 @@ interface IMessage {
   userName?: string;
   roomId?: string;
   streamId?: string;
+  from?: string;
+  to?: string;
 }
 
-function sendMessage(roomId: string | undefined, socket: WebSocket, msg: unknown) {
+function sendToAll(roomId: string | undefined, socket: WebSocket, data: unknown) {
   if (!roomId) return;
   const room = rooms.get(roomId);
   if (!room) return;
-  const recievers = room.clients.filter((s) => s.socket !== socket);
-  recievers.forEach((r) => {
-    if (r.socket.readyState === WebSocket.OPEN) {
-      r.socket.send(JSON.stringify(msg));
-    }
-  });
+  room.clients
+    .filter((r) => r.socket !== socket)
+    .forEach((c) => {
+      if (c.socket.readyState === WebSocket.OPEN) {
+        c.socket.send(JSON.stringify(data));
+      }
+    });
+}
+
+function sendMessage(roomId: string | undefined, msg: IMessage) {
+  if (!roomId) return;
+  const room = rooms.get(roomId);
+  if (!room) return;
+  const to = msg.to!;
+  const reciever = room.clients.find((c) => c.streamId === to);
+  if (reciever?.socket?.readyState === WebSocket.OPEN) {
+    reciever.socket.send(JSON.stringify(msg));
+  }
 }
 
 type Room = {
@@ -38,54 +52,53 @@ ws.on("connection", (socket: WebSocket) => {
     try {
       const parsed = JSON.parse(msg.toString()) as IMessage;
       const { type, roomId } = parsed;
-      switch (type) {
-        case "createRoom":
-          rooms.set(roomId!, {
-            roomName: parsed.roomname!,
-            clients: [
-              {
-                streamId: "",
-                userName: "",
-                socket,
-              },
-            ],
-          });
-          break;
-        case "joinRoom":
-          const currentRoom = rooms.get(roomId!);
-          if (!currentRoom || !roomId || currentRoom.clients.length > 3) return;
-          rooms.set(roomId, {
-            roomName: currentRoom.roomName,
-            clients: [
-              ...currentRoom.clients,
-              {
-                userName: "",
-                streamId: "",
-                socket,
-              },
-            ],
-          });
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(
-              JSON.stringify({
-                type: "self-joined",
-                roomId,
-                roomName: currentRoom.roomName,
-                clients: currentRoom.clients.filter((c) => c.socket !== socket),
-              }),
-            );
-          }
-          break;
-        default:
-          if (type === "joined-metadata") {
-            const room = rooms.get(roomId!);
-            const currentClient = room?.clients.find((c) => c.socket === socket);
-            if (currentClient) {
-              currentClient.streamId = parsed.streamId!;
-              currentClient.userName = parsed.userName!;
-            }
-          }
-          sendMessage(roomId, socket, parsed);
+      if (type === "createRoom") {
+        rooms.set(roomId!, {
+          roomName: parsed.roomname!,
+          clients: [
+            {
+              streamId: "",
+              userName: "",
+              socket,
+            },
+          ],
+        });
+      } else if (type === "joinRoom") {
+        const currentRoom = rooms.get(roomId!);
+        if (!currentRoom || !roomId || currentRoom.clients.length > 3) return;
+        rooms.set(roomId, {
+          roomName: currentRoom.roomName,
+          clients: [
+            ...currentRoom.clients,
+            {
+              userName: "",
+              streamId: "",
+              socket,
+            },
+          ],
+        });
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(
+            JSON.stringify({
+              type: "self-joined",
+              roomId,
+              roomName: currentRoom.roomName,
+              clients: currentRoom.clients.filter((c) => c.socket !== socket),
+            }),
+          );
+        }
+      } else if (type === "joined-metadata") {
+        const room = rooms.get(roomId!);
+        const currentClient = room?.clients.find((c) => c.socket === socket);
+        if (currentClient) {
+          currentClient.streamId = parsed.from!;
+          currentClient.userName = parsed.userName!;
+        }
+        sendToAll(roomId, socket, parsed);
+      } else if (type === "toggle-mute" || type === "toggle-video-off" || type === "chat-message") {
+        sendToAll(roomId, socket, parsed);
+      } else {
+        sendMessage(roomId, parsed);
       }
     } catch (e) {
       console.error(e);
@@ -98,9 +111,9 @@ ws.on("connection", (socket: WebSocket) => {
     if (!room) return;
     if (room.clients.length > 1) {
       const leaved = room.clients.pop();
-      sendMessage(roomId, socket, {
+      sendToAll(roomId, socket, {
         type: "disconnected",
-        streamId: leaved?.streamId,
+        from: leaved?.streamId,
       });
       rooms.set(roomId, room);
     } else {
